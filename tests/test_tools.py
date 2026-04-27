@@ -26,11 +26,11 @@ async def test_get_job_tool_returns_company_profile_from_job_company_id(
 
     assert result["found"] is True
     assert result["job"]["id"] == "job-001"
-    assert result["job"]["company_id"] == "company-northstar"
-    assert result["company"]["id"] == "company-northstar"
-    assert result["company"]["name"] == "Northstar Labs"
-    assert result["company"]["postal_code"] == "78701"
-    assert result["company"]["phone"] == "+1-512-555-0194"
+    assert result["job"]["company_id"] == "company-alphabet"
+    assert result["company"]["id"] == "company-alphabet"
+    assert result["company"]["name"] == "Alphabet"
+    assert result["company"]["postal_code"] == "94043"
+    assert result["company"]["website"] == "https://abc.xyz"
 
 
 async def test_submit_mock_application_tool_handles_missing_job(monkeypatch, seeded_repository) -> None:
@@ -98,7 +98,7 @@ async def test_company_tools_manage_company_profiles(monkeypatch, seeded_reposit
     monkeypatch.setattr(main, "repository", seeded_repository)
 
     update_result = await main.update_company(
-        "company-northstar",
+        "company-alphabet",
         size="201-500",
         headquarters="Denver, CO",
         address_line1="100 Market St",
@@ -106,7 +106,7 @@ async def test_company_tools_manage_company_profiles(monkeypatch, seeded_reposit
         phone="+1-303-555-0100",
         short_history="Relocated the mock headquarters for testing.",
     )
-    get_result = await main.get_company("company-northstar")
+    get_result = await main.get_company("company-alphabet")
 
     assert update_result["updated"] is True
     assert get_result["company"]["size"] == "201-500"
@@ -120,7 +120,7 @@ async def test_company_tools_manage_company_profiles(monkeypatch, seeded_reposit
 async def test_get_company_jobs_tool_returns_company_listings(monkeypatch, seeded_repository) -> None:
     monkeypatch.setattr(main, "repository", seeded_repository)
 
-    result = await main.get_company_jobs("company-northstar")
+    result = await main.get_company_jobs("company-alphabet")
 
     assert result["found"] is True
     assert result["total"] == 3

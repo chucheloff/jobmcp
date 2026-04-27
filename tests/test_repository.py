@@ -22,7 +22,7 @@ async def test_save_jobs_appends_to_existing_records(fake_valkey_client, stale_j
     repository._client = fake_valkey_client
     await repository.save_companies(MOCK_COMPANIES)
     fake_valkey_client.sets["test-jobmcp:jobs"] = {"job-stale"}
-    fake_valkey_client.sets["test-jobmcp:company_jobs:company-northstar"] = {"job-stale"}
+    fake_valkey_client.sets["test-jobmcp:company_jobs:company-alphabet"] = {"job-stale"}
     fake_valkey_client.values["test-jobmcp:job:job-stale"] = stale_job_payload
 
     await repository.save_jobs(MOCK_JOBS[:2])
@@ -45,7 +45,7 @@ async def test_search_jobs_filters_and_sorts_results(seeded_repository) -> None:
 
 
 async def test_company_jobs_are_listed_by_company_id(seeded_repository) -> None:
-    jobs = await seeded_repository.list_company_jobs("company-northstar")
+    jobs = await seeded_repository.list_company_jobs("company-alphabet")
 
     assert {job.id for job in jobs} == {"job-001", "job-002", "job-003"}
     assert {job.title for job in jobs} == {
@@ -67,7 +67,7 @@ async def test_applications_can_be_created_and_listed(seeded_repository) -> None
     applications = await seeded_repository.list_applications()
 
     assert application.id.startswith("app-")
-    assert application.company_id == "company-northstar"
+    assert application.company_id == "company-alphabet"
     assert application.status == "submitted"
     assert [item.id for item in applications] == [application.id]
 

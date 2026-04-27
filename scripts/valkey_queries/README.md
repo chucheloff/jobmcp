@@ -20,7 +20,7 @@ Common commands:
 uv run python scripts/valkey_queries/list_keys.py
 uv run python scripts/valkey_queries/show_companies.py
 uv run python scripts/valkey_queries/show_jobs.py
-uv run python scripts/valkey_queries/show_company_jobs.py company-northstar
+uv run python scripts/valkey_queries/show_company_jobs.py company-alphabet
 uv run python scripts/valkey_queries/show_applications.py
 uv run python scripts/valkey_queries/get_raw_key.py jobmcp:jobs
 ```
