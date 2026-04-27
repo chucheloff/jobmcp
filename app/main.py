@@ -27,9 +27,16 @@ mcp = FastMCP("jobmcp")
 
 
 async def ensure_seed_data() -> None:
-    if settings.seed_on_startup and not await repository.has_jobs():
-        await repository.save_companies(MOCK_COMPANIES)
-        await repository.save_jobs(MOCK_JOBS)
+    if not settings.seed_on_startup:
+        return
+
+    has_companies = await repository.has_companies()
+    has_jobs = await repository.has_jobs()
+    if has_companies and has_jobs:
+        return
+
+    await repository.save_companies(MOCK_COMPANIES)
+    await repository.save_jobs(MOCK_JOBS)
 
 
 @mcp.custom_route("/health", methods=["GET"])

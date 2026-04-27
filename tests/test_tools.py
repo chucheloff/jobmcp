@@ -139,6 +139,40 @@ async def test_reset_mock_data_tool_reseeds_catalog(monkeypatch, seeded_reposito
     assert len(await seeded_repository.list_jobs()) == len(MOCK_JOBS)
 
 
+async def test_ensure_seed_data_reseeds_when_companies_or_jobs_are_missing(
+    monkeypatch,
+    seeded_repository,
+) -> None:
+    monkeypatch.setattr(main, "repository", seeded_repository)
+    monkeypatch.setattr(
+        main,
+        "settings",
+        Settings(
+            host="0.0.0.0",
+            port=8000,
+            mcp_path="/mcp",
+            stateless_http=True,
+            valkey_url="redis://valkey:6379/0",
+            valkey_prefix="jobmcp",
+            seed_on_startup=True,
+        ),
+    )
+
+    fake_client = seeded_repository._client
+    assert fake_client is not None
+    fake_client.sets.pop("test-jobmcp:companies", None)
+    for company in MOCK_COMPANIES:
+        fake_client.values.pop(f"test-jobmcp:company:{company.id}", None)
+    fake_client.sets.pop("test-jobmcp:jobs", None)
+    for job in MOCK_JOBS:
+        fake_client.values.pop(f"test-jobmcp:job:{job.id}", None)
+
+    await main.ensure_seed_data()
+
+    assert len(await seeded_repository.list_companies()) == len(MOCK_COMPANIES)
+    assert len(await seeded_repository.list_jobs()) == len(MOCK_JOBS)
+
+
 async def test_health_route_reports_ok(monkeypatch, seeded_repository) -> None:
     monkeypatch.setattr(main, "repository", seeded_repository)
     monkeypatch.setattr(

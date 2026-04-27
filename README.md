@@ -158,6 +158,12 @@ Smoke test from inside the running app container:
 docker compose exec jobmcp uv run python scripts/smoke_test.py --url http://127.0.0.1:8000/mcp
 ```
 
+Manual seed into a running Valkey instance:
+
+```bash
+JOBMCP_VALKEY_URL=redis://localhost:6379/0 uv run python scripts/seed_mock_data.py
+```
+
 ## Example MCP usage
 
 Once a client connects to `http://localhost:8000/mcp`, it can:
@@ -170,7 +176,7 @@ Once a client connects to `http://localhost:8000/mcp`, it can:
 - search by profession tags or skills tags
 - submit a mock application tied to a job
 
-The startup flow seeds fixture data automatically when the database is empty. You can also reset it through the `reset_mock_data` tool.
+The startup flow seeds fixture data automatically on service startup whenever the jobs set or companies set is missing. You can also seed manually with `scripts/seed_mock_data.py` or reset it through the `reset_mock_data` tool.
 
 ## Environment variables
 
