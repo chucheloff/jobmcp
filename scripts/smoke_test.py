@@ -11,8 +11,17 @@ from fastmcp import Client
 EXPECTED_TOOLS = {
     "search_jobs",
     "get_job",
+    "add_job",
+    "update_job",
+    "delete_job",
     "list_companies",
+    "add_company",
+    "update_company",
+    "get_company",
+    "get_company_jobs",
     "submit_mock_application",
+    "get_application_status",
+    "update_application_status",
     "list_mock_applications",
     "reset_mock_data",
 }
@@ -51,6 +60,12 @@ async def run_smoke_test(url: str) -> dict[str, Any]:
         if not isinstance(get_job_data, dict) or not get_job_data.get("found"):
             raise AssertionError(f"Unexpected get_job result: {get_job_data!r}")
 
+        company_id = first_job["company_id"]
+        company_jobs_result = await client.call_tool("get_company_jobs", {"company_id": company_id})
+        company_jobs_data = company_jobs_result.data
+        if not isinstance(company_jobs_data, dict) or not company_jobs_data.get("found"):
+            raise AssertionError(f"Unexpected company jobs result: {company_jobs_data!r}")
+
         submit_result = await client.call_tool(
             "submit_mock_application",
             {
@@ -66,6 +81,18 @@ async def run_smoke_test(url: str) -> dict[str, Any]:
             raise AssertionError(f"Unexpected submit result: {submit_data!r}")
 
         application_id = submit_data["application"]["id"]
+        application_number = submit_data["application_number"]
+
+        if application_number != application_id:
+            raise AssertionError(f"Unexpected application number: {submit_data!r}")
+
+        status_result = await client.call_tool(
+            "get_application_status",
+            {"application_number": application_number},
+        )
+        status_data = status_result.data
+        if not isinstance(status_data, dict) or not status_data.get("found"):
+            raise AssertionError(f"Unexpected application status result: {status_data!r}")
 
         applications_result = await client.call_tool(
             "list_mock_applications",
