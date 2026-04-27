@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Generator
 
 import pytest
 
 from app.repository import JobRepository
-from app.seed_data import MOCK_JOBS
+from app.seed_data import MOCK_COMPANIES, MOCK_JOBS
 
 
 class FakePipeline:
@@ -20,6 +19,10 @@ class FakePipeline:
 
     def sadd(self, key: str, value: str) -> "FakePipeline":
         self._operations.append(("sadd", (key, value)))
+        return self
+
+    def srem(self, key: str, value: str) -> "FakePipeline":
+        self._operations.append(("srem", (key, value)))
         return self
 
     def set(self, key: str, value: str) -> "FakePipeline":
@@ -36,6 +39,9 @@ class FakePipeline:
             elif operation == "sadd":
                 key, value = args
                 self._client.sets.setdefault(str(key), set()).add(str(value))
+            elif operation == "srem":
+                key, value = args
+                self._client.sets.setdefault(str(key), set()).discard(str(value))
             elif operation == "set":
                 key, value = args
                 self._client.values[str(key)] = str(value)
@@ -72,6 +78,10 @@ class FakeValkeyClient:
     async def get(self, key: str) -> str | None:
         return self.values.get(key)
 
+    async def set(self, key: str, value: str) -> bool:
+        self.values[key] = value
+        return True
+
 
 @pytest.fixture
 def fake_valkey_client() -> FakeValkeyClient:
@@ -82,6 +92,7 @@ def fake_valkey_client() -> FakeValkeyClient:
 async def seeded_repository(fake_valkey_client: FakeValkeyClient) -> JobRepository:
     repository = JobRepository("redis://unused", "test-jobmcp")
     repository._client = fake_valkey_client
+    await repository.save_companies(MOCK_COMPANIES)
     await repository.save_jobs(MOCK_JOBS)
     return repository
 
@@ -92,13 +103,15 @@ def stale_job_payload() -> str:
         {
             "id": "job-stale",
             "title": "Old Listing",
-            "company": "Legacy Co",
+            "company_id": "company-northstar",
             "location": "Nowhere",
             "work_mode": "remote",
             "employment_type": "full-time",
             "seniority": "mid",
             "salary_range": {"currency": "USD", "min": 1, "max": 2},
-            "keywords": ["legacy"],
+            "profession_tags": ["legacy"],
+            "skills_tags": ["legacy"],
+            "candidate_qualities": ["legacy"],
             "summary": "Stale data",
             "description": "Stale data",
             "posted_at": "2024-01-01",

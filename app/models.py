@@ -6,7 +6,36 @@ from typing import Literal
 WorkMode = Literal["remote", "hybrid", "onsite"]
 EmploymentType = Literal["full-time", "contract", "internship"]
 Seniority = Literal["junior", "mid", "senior", "staff"]
-ApplicationStatus = Literal["submitted"]
+ApplicationStatus = Literal["submitted", "positive", "rejected"]
+
+
+@dataclass(slots=True)
+class CompanyRecord:
+    id: str
+    name: str
+    description: str
+    website: str
+    industry: str
+    headquarters: str
+    size: str
+    legal_name: str = ""
+    address_line1: str = ""
+    address_line2: str = ""
+    city: str = ""
+    region: str = ""
+    postal_code: str = ""
+    country: str = ""
+    po_box: str = ""
+    phone: str = ""
+    contact_email: str = ""
+    location: str = ""
+    latitude: float | None = None
+    longitude: float | None = None
+    founded_year: int | None = None
+    short_history: str = ""
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
 
 
 @dataclass(slots=True)
@@ -20,13 +49,15 @@ class SalaryRange:
 class JobRecord:
     id: str
     title: str
-    company: str
+    company_id: str
     location: str
     work_mode: WorkMode
     employment_type: EmploymentType
     seniority: Seniority
     salary_range: SalaryRange
-    keywords: list[str]
+    profession_tags: list[str]
+    skills_tags: list[str]
+    candidate_qualities: list[str]
     summary: str
     description: str
     posted_at: str
@@ -40,15 +71,53 @@ class JobRecord:
 class ApplicationRecord:
     id: str
     job_id: str
+    company_id: str
     applicant_name: str
     applicant_email: str
     resume_url: str
     cover_note: str
     status: ApplicationStatus
     submitted_at: str
+    decided_at: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
+
+
+def _string_list(payload: object) -> list[str]:
+    if not isinstance(payload, list):
+        return []
+    return [str(item) for item in payload]
+
+
+def company_from_dict(payload: dict[str, object]) -> CompanyRecord:
+    latitude = payload.get("latitude")
+    longitude = payload.get("longitude")
+    founded_year = payload.get("founded_year")
+    return CompanyRecord(
+        id=str(payload["id"]),
+        name=str(payload["name"]),
+        description=str(payload["description"]),
+        website=str(payload["website"]),
+        industry=str(payload["industry"]),
+        headquarters=str(payload["headquarters"]),
+        size=str(payload["size"]),
+        legal_name=str(payload.get("legal_name", "")),
+        address_line1=str(payload.get("address_line1", "")),
+        address_line2=str(payload.get("address_line2", "")),
+        city=str(payload.get("city", "")),
+        region=str(payload.get("region", "")),
+        postal_code=str(payload.get("postal_code", "")),
+        country=str(payload.get("country", "")),
+        po_box=str(payload.get("po_box", "")),
+        phone=str(payload.get("phone", "")),
+        contact_email=str(payload.get("contact_email", "")),
+        location=str(payload.get("location", payload.get("headquarters", ""))),
+        latitude=float(latitude) if latitude is not None else None,
+        longitude=float(longitude) if longitude is not None else None,
+        founded_year=int(founded_year) if founded_year is not None else None,
+        short_history=str(payload.get("short_history", "")),
+    )
 
 
 def job_from_dict(payload: dict[str, object]) -> JobRecord:
@@ -57,7 +126,7 @@ def job_from_dict(payload: dict[str, object]) -> JobRecord:
     return JobRecord(
         id=str(payload["id"]),
         title=str(payload["title"]),
-        company=str(payload["company"]),
+        company_id=str(payload.get("company_id", payload.get("company", ""))),
         location=str(payload["location"]),
         work_mode=payload["work_mode"],  # type: ignore[arg-type]
         employment_type=payload["employment_type"],  # type: ignore[arg-type]
@@ -67,7 +136,9 @@ def job_from_dict(payload: dict[str, object]) -> JobRecord:
             min=int(salary_range["min"]),
             max=int(salary_range["max"]),
         ),
-        keywords=[str(item) for item in payload["keywords"]],
+        profession_tags=_string_list(payload.get("profession_tags", [])),
+        skills_tags=_string_list(payload.get("skills_tags", payload.get("keywords", []))),
+        candidate_qualities=_string_list(payload.get("candidate_qualities", [])),
         summary=str(payload["summary"]),
         description=str(payload["description"]),
         posted_at=str(payload["posted_at"]),
@@ -79,10 +150,12 @@ def application_from_dict(payload: dict[str, object]) -> ApplicationRecord:
     return ApplicationRecord(
         id=str(payload["id"]),
         job_id=str(payload["job_id"]),
+        company_id=str(payload.get("company_id", "")),
         applicant_name=str(payload["applicant_name"]),
         applicant_email=str(payload["applicant_email"]),
         resume_url=str(payload["resume_url"]),
         cover_note=str(payload["cover_note"]),
         status=payload["status"],  # type: ignore[arg-type]
         submitted_at=str(payload["submitted_at"]),
+        decided_at=str(payload["decided_at"]) if payload.get("decided_at") is not None else None,
     )
