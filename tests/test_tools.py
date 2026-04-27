@@ -26,11 +26,11 @@ async def test_get_job_tool_returns_company_profile_from_job_company_id(
 
     assert result["found"] is True
     assert result["job"]["id"] == "job-001"
-    assert result["job"]["company_id"] == "company-northstar"
-    assert result["company"]["id"] == "company-northstar"
-    assert result["company"]["name"] == "Northstar Labs"
-    assert result["company"]["postal_code"] == "78701"
-    assert result["company"]["phone"] == "+1-512-555-0194"
+    assert result["job"]["company_id"] == "company-alphabet"
+    assert result["company"]["id"] == "company-alphabet"
+    assert result["company"]["name"] == "Alphabet"
+    assert result["company"]["postal_code"] == "94043"
+    assert result["company"]["website"] == "https://abc.xyz"
 
 
 async def test_submit_mock_application_tool_handles_missing_job(monkeypatch, seeded_repository) -> None:
@@ -98,7 +98,7 @@ async def test_company_tools_manage_company_profiles(monkeypatch, seeded_reposit
     monkeypatch.setattr(main, "repository", seeded_repository)
 
     update_result = await main.update_company(
-        "company-northstar",
+        "company-alphabet",
         size="201-500",
         headquarters="Denver, CO",
         address_line1="100 Market St",
@@ -106,7 +106,7 @@ async def test_company_tools_manage_company_profiles(monkeypatch, seeded_reposit
         phone="+1-303-555-0100",
         short_history="Relocated the mock headquarters for testing.",
     )
-    get_result = await main.get_company("company-northstar")
+    get_result = await main.get_company("company-alphabet")
 
     assert update_result["updated"] is True
     assert get_result["company"]["size"] == "201-500"
@@ -120,7 +120,7 @@ async def test_company_tools_manage_company_profiles(monkeypatch, seeded_reposit
 async def test_get_company_jobs_tool_returns_company_listings(monkeypatch, seeded_repository) -> None:
     monkeypatch.setattr(main, "repository", seeded_repository)
 
-    result = await main.get_company_jobs("company-northstar")
+    result = await main.get_company_jobs("company-alphabet")
 
     assert result["found"] is True
     assert result["total"] == 3
@@ -136,6 +136,40 @@ async def test_reset_mock_data_tool_reseeds_catalog(monkeypatch, seeded_reposito
     assert result["reset"] is True
     assert result["companies_seeded"] == len(MOCK_COMPANIES)
     assert result["jobs_seeded"] == len(MOCK_JOBS)
+    assert len(await seeded_repository.list_jobs()) == len(MOCK_JOBS)
+
+
+async def test_ensure_seed_data_reseeds_when_companies_or_jobs_are_missing(
+    monkeypatch,
+    seeded_repository,
+) -> None:
+    monkeypatch.setattr(main, "repository", seeded_repository)
+    monkeypatch.setattr(
+        main,
+        "settings",
+        Settings(
+            host="0.0.0.0",
+            port=8000,
+            mcp_path="/mcp",
+            stateless_http=True,
+            valkey_url="redis://valkey:6379/0",
+            valkey_prefix="jobmcp",
+            seed_on_startup=True,
+        ),
+    )
+
+    fake_client = seeded_repository._client
+    assert fake_client is not None
+    fake_client.sets.pop("test-jobmcp:companies", None)
+    for company in MOCK_COMPANIES:
+        fake_client.values.pop(f"test-jobmcp:company:{company.id}", None)
+    fake_client.sets.pop("test-jobmcp:jobs", None)
+    for job in MOCK_JOBS:
+        fake_client.values.pop(f"test-jobmcp:job:{job.id}", None)
+
+    await main.ensure_seed_data()
+
+    assert len(await seeded_repository.list_companies()) == len(MOCK_COMPANIES)
     assert len(await seeded_repository.list_jobs()) == len(MOCK_JOBS)
 
 

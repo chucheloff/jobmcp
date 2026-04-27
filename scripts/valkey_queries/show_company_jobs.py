@@ -8,7 +8,7 @@ from common import connect, load_json_records, prefixed_key, print_json, sorted_
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Show all jobs for one company.")
-    parser.add_argument("company_id", help="Company id, for example company-northstar")
+    parser.add_argument("company_id", help="Company id, for example company-alphabet")
     return parser.parse_args()
 
 

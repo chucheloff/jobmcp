@@ -103,7 +103,7 @@ def stale_job_payload() -> str:
         {
             "id": "job-stale",
             "title": "Old Listing",
-            "company_id": "company-northstar",
+            "company_id": "company-alphabet",
             "location": "Nowhere",
             "work_mode": "remote",
             "employment_type": "full-time",

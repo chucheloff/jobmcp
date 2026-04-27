@@ -218,6 +218,10 @@ class JobRepository:
         client = self._require_client()
         return bool(await client.exists(self._jobs_key()))
 
+    async def has_companies(self) -> bool:
+        client = self._require_client()
+        return bool(await client.exists(self._companies_key()))
+
     async def get_job(self, job_id: str) -> JobRecord | None:
         client = self._require_client()
         payload = await client.get(self._job_key(job_id))
