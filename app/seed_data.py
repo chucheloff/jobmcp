@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from app.models import CompanyRecord, JobRecord, SalaryRange
+from dataclasses import fields
+from typing import TypeAlias
+
+from app.models import CompanyRecord, JobRecord, JobUpdateValue, SalaryRange
 
 
 MOCK_COMPANIES: list[CompanyRecord] = [
@@ -247,7 +250,13 @@ MOCK_COMPANIES: list[CompanyRecord] = [
 ]
 
 
-_EXISTING_JOB_FILTER_METADATA: dict[str, dict[str, object]] = {
+JobFilterMetadata: TypeAlias = dict[str, JobUpdateValue]
+
+_DESCRIPTION_NOTE_FIELD = "description_note"
+_JOB_RECORD_FIELD_NAMES = frozenset(field.name for field in fields(JobRecord))
+
+
+_EXISTING_JOB_FILTER_METADATA: dict[str, JobFilterMetadata] = {
     "job-001": {
         "eligible_countries": ["US"],
         "office_cities": [],
@@ -1404,9 +1413,12 @@ for job in MOCK_JOBS:
     metadata = _EXISTING_JOB_FILTER_METADATA.get(job.id)
     if not metadata:
         continue
-    description_note = metadata["description_note"]
+    description_note = str(metadata[_DESCRIPTION_NOTE_FIELD])
     for field_name, value in metadata.items():
-        if field_name == "description_note":
+        if field_name == _DESCRIPTION_NOTE_FIELD:
             continue
-        setattr(job, field_name, value)
+        if field_name in _JOB_RECORD_FIELD_NAMES:
+            setattr(job, field_name, value)
+            continue
+        raise ValueError(f"Unknown job metadata field: {field_name}")
     job.description = f"{job.description} {description_note}"

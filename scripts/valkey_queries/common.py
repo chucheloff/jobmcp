@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any
+from typing import cast
 
 import valkey.asyncio as valkey
+
+from app.models import JsonValue, RecordPayload
 
 
 DEFAULT_VALKEY_URL = "redis://localhost:6379/0"
@@ -33,17 +35,20 @@ async def sorted_smembers(client: valkey.Valkey, key: str) -> list[str]:
     return sorted(await client.smembers(key))
 
 
-async def load_json_records(client: valkey.Valkey, keys: list[str]) -> list[dict[str, Any]]:
+async def load_json_records(client: valkey.Valkey, keys: list[str]) -> list[RecordPayload]:
     if not keys:
         return []
 
     payloads = await client.mget(keys)
-    records: list[dict[str, Any]] = []
-    for payload in payloads:
-        if payload:
-            records.append(json.loads(payload))
+    records: list[RecordPayload] = []
+    for raw_payload in payloads:
+        if raw_payload:
+            payload: object = json.loads(raw_payload)
+            if not isinstance(payload, dict):
+                raise ValueError(f"Expected JSON object payload, got {type(payload).__name__}.")
+            records.append(cast(RecordPayload, payload))
     return records
 
 
-def print_json(payload: Any) -> None:
+def print_json(payload: JsonValue) -> None:
     print(json.dumps(payload, indent=2, sort_keys=True))

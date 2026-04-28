@@ -11,11 +11,15 @@ from starlette.responses import JSONResponse
 from app.config import Settings, load_settings
 from app.models import (
     ApplicationStatus,
+    ApplicationRecord,
+    CompanyUpdates,
     CompanyRecord,
     EmploymentType,
     JobRecord,
+    JobUpdates,
     OnCallPolicy,
     SalaryRange,
+    SalaryRangePayload,
     SalaryPeriod,
     Seniority,
     WorkMode,
@@ -23,17 +27,17 @@ from app.models import (
 from app.repository import JobRepository
 from app.seed_data import MOCK_COMPANIES, MOCK_JOBS
 
-settings = load_settings()
-repository = JobRepository(settings.valkey_url, settings.valkey_prefix)
-mcp = FastMCP("jobmcp")
+settings: Settings = load_settings()
+repository: JobRepository = JobRepository(settings.valkey_url, settings.valkey_prefix)
+mcp: FastMCP = FastMCP("jobmcp")
 
 
 async def ensure_seed_data() -> None:
     if not settings.seed_on_startup:
         return
 
-    has_companies = await repository.has_companies()
-    has_jobs = await repository.has_jobs()
+    has_companies: bool = await repository.has_companies()
+    has_jobs: bool = await repository.has_jobs()
     if has_companies and has_jobs:
         return
 
@@ -45,7 +49,7 @@ async def ensure_seed_data() -> None:
 async def health(_: Request) -> JSONResponse:
     try:
         await repository.connect()
-        valkey_ok = await repository.ping()
+        valkey_ok: bool = await repository.ping()
     except Exception as error:  # pragma: no cover - operational surface
         return JSONResponse(
             {"status": "degraded", "valkey": False, "error": str(error)},
@@ -87,7 +91,7 @@ async def search_jobs(
 ) -> dict[str, object]:
     """Search mock job openings by title, location, salary, tags, geo, language, and deal-breakers."""
 
-    jobs = await repository.search_jobs(
+    jobs: list[JobRecord] = await repository.search_jobs(
         query=query,
         location=location,
         work_mode=work_mode,
@@ -114,10 +118,10 @@ async def search_jobs(
 async def get_job(job_id: str) -> dict[str, object]:
     """Fetch a single mock job opening by id."""
 
-    job = await repository.get_job(job_id)
+    job: JobRecord | None = await repository.get_job(job_id)
     if job is None:
         return {"found": False, "job_id": job_id, "error": "Job not found."}
-    company = await repository.get_company(job.company_id)
+    company: CompanyRecord | None = await repository.get_company(job.company_id)
     return {
         "found": True,
         "job": job.to_dict(),
@@ -161,7 +165,8 @@ async def add_job(
 ) -> dict[str, object]:
     """Add a job listing for an existing company."""
 
-    if await repository.get_company(company_id) is None:
+    company: CompanyRecord | None = await repository.get_company(company_id)
+    if company is None:
         return {"created": False, "company_id": company_id, "error": "Company not found."}
 
     job = JobRecord(
@@ -235,14 +240,16 @@ async def update_job(
 ) -> dict[str, object]:
     """Update fields on an existing job listing."""
 
-    existing_job = await repository.get_job(job_id)
+    existing_job: JobRecord | None = await repository.get_job(job_id)
     if existing_job is None:
         return {"updated": False, "job_id": job_id, "error": "Job not found."}
 
-    if company_id is not None and await repository.get_company(company_id) is None:
-        return {"updated": False, "job_id": job_id, "error": "Company not found."}
+    if company_id is not None:
+        target_company: CompanyRecord | None = await repository.get_company(company_id)
+        if target_company is None:
+            return {"updated": False, "job_id": job_id, "error": "Company not found."}
 
-    updates: dict[str, object] = {
+    updates: JobUpdates = {
         "title": title,
         "company_id": company_id,
         "location": location,
@@ -272,21 +279,25 @@ async def update_job(
         "deal_breaker_tags": deal_breaker_tags,
     }
     if salary_currency is not None or salary_min is not None or salary_max is not None:
-        updates["salary_range"] = {
+        salary_range_update: SalaryRangePayload = {
             "currency": salary_currency or existing_job.salary_range.currency,
             "min": salary_min if salary_min is not None else existing_job.salary_range.min,
             "max": salary_max if salary_max is not None else existing_job.salary_range.max,
         }
+        updates["salary_range"] = salary_range_update
 
-    job = await repository.update_job(job_id, updates)
-    assert job is not None
-    return {"updated": True, "job": job.to_dict()}
+    updated_job: JobRecord | None = await repository.update_job(job_id, updates)
+    if updated_job is None:
+        return {"updated": False, "job_id": job_id, "error": "Job not found."}
+    return {"updated": True, "job": updated_job.to_dict()}
 
 
 @mcp.tool
 async def delete_job(job_id: str, force: bool = False) -> dict[str, object]:
     """Delete a job listing, blocking deletion when applications exist unless force is true."""
 
+    deleted: bool
+    reason: str | None
     deleted, reason = await repository.delete_job(job_id, force=force)
     if deleted:
         return {"deleted": True, "job_id": job_id}
@@ -303,7 +314,7 @@ async def delete_job(job_id: str, force: bool = False) -> dict[str, object]:
 async def list_companies() -> dict[str, object]:
     """List company records currently stored in the mock catalog."""
 
-    companies = await repository.list_companies()
+    companies: list[CompanyRecord] = await repository.list_companies()
     return {"total": len(companies), "companies": [company.to_dict() for company in companies]}
 
 
@@ -389,7 +400,7 @@ async def update_company(
 ) -> dict[str, object]:
     """Update fields on a company profile."""
 
-    updates: dict[str, object] = {
+    updates: CompanyUpdates = {
         "name": name,
         "description": description,
         "website": website,
@@ -412,7 +423,7 @@ async def update_company(
         "founded_year": founded_year,
         "short_history": short_history,
     }
-    company = await repository.update_company(company_id, updates)
+    company: CompanyRecord | None = await repository.update_company(company_id, updates)
     if company is None:
         return {"updated": False, "company_id": company_id, "error": "Company not found."}
     return {"updated": True, "company": company.to_dict()}
@@ -422,7 +433,7 @@ async def update_company(
 async def get_company(company_id: str) -> dict[str, object]:
     """Fetch one company profile by id."""
 
-    company = await repository.get_company(company_id)
+    company: CompanyRecord | None = await repository.get_company(company_id)
     if company is None:
         return {"found": False, "company_id": company_id, "error": "Company not found."}
     return {"found": True, "company": company.to_dict()}
@@ -432,11 +443,11 @@ async def get_company(company_id: str) -> dict[str, object]:
 async def get_company_jobs(company_id: str) -> dict[str, object]:
     """Fetch all job listings for a company."""
 
-    company = await repository.get_company(company_id)
+    company: CompanyRecord | None = await repository.get_company(company_id)
     if company is None:
         return {"found": False, "company_id": company_id, "error": "Company not found."}
 
-    jobs = await repository.list_company_jobs(company_id)
+    jobs: list[JobRecord] = await repository.list_company_jobs(company_id)
     return {
         "found": True,
         "company": company.to_dict(),
@@ -455,11 +466,11 @@ async def submit_mock_application(
 ) -> dict[str, object]:
     """Create a mock application record for a given job."""
 
-    job = await repository.get_job(job_id)
+    job: JobRecord | None = await repository.get_job(job_id)
     if job is None:
         return {"submitted": False, "job_id": job_id, "error": "Job not found."}
 
-    application = await repository.create_application(
+    application: ApplicationRecord = await repository.create_application(
         job_id=job_id,
         applicant_name=applicant_name,
         applicant_email=applicant_email,
@@ -478,7 +489,9 @@ async def submit_mock_application(
 async def get_application_status(application_number: str) -> dict[str, object]:
     """Fetch an application status, auto-deciding submitted applications after one hour."""
 
-    application = await repository.decide_application_if_ready(application_number)
+    application: ApplicationRecord | None = await repository.decide_application_if_ready(
+        application_number
+    )
     if application is None:
         return {
             "found": False,
@@ -500,7 +513,7 @@ async def update_application_status(
 ) -> dict[str, object]:
     """Manually update a mock application status."""
 
-    application = await repository.update_application_status(
+    application: ApplicationRecord | None = await repository.update_application_status(
         application_number,
         status,
         decided_at=datetime.now(UTC).isoformat() if status != "submitted" else None,
@@ -523,7 +536,7 @@ async def update_application_status(
 async def list_mock_applications(job_id: str | None = None) -> dict[str, object]:
     """List mock applications stored in Valkey."""
 
-    applications = await repository.list_applications()
+    applications: list[ApplicationRecord] = await repository.list_applications()
     if job_id:
         applications = [item for item in applications if item.job_id == job_id]
     return {"total": len(applications), "applications": [item.to_dict() for item in applications]}

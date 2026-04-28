@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from typing import Literal
+from typing import Literal, TypeAlias, TypedDict, cast, get_args
 
 WorkMode = Literal["remote", "hybrid", "onsite"]
 EmploymentType = Literal["full-time", "contract", "internship"]
@@ -9,6 +9,30 @@ Seniority = Literal["junior", "mid", "senior", "staff"]
 ApplicationStatus = Literal["submitted", "positive", "rejected"]
 SalaryPeriod = Literal["year", "hour"]
 OnCallPolicy = Literal["none", "business-hours", "rotating", "24-7"]
+JsonScalar: TypeAlias = str | int | float | bool | None
+JsonValue: TypeAlias = JsonScalar | list["JsonValue"] | dict[str, "JsonValue"]
+JsonObject: TypeAlias = dict[str, JsonValue]
+RecordPayload: TypeAlias = JsonObject
+
+
+class SalaryRangePayload(TypedDict):
+    currency: str
+    min: int
+    max: int
+
+
+CompanyUpdateValue: TypeAlias = str | int | float
+CompanyUpdates: TypeAlias = dict[str, CompanyUpdateValue | None]
+JobUpdateValue: TypeAlias = str | int | bool | list[str] | SalaryRangePayload
+JobUpdates: TypeAlias = dict[str, JobUpdateValue | None]
+
+
+WORK_MODES = cast(tuple[WorkMode, ...], get_args(WorkMode))
+EMPLOYMENT_TYPES = cast(tuple[EmploymentType, ...], get_args(EmploymentType))
+SENIORITIES = cast(tuple[Seniority, ...], get_args(Seniority))
+APPLICATION_STATUSES = cast(tuple[ApplicationStatus, ...], get_args(ApplicationStatus))
+SALARY_PERIODS = cast(tuple[SalaryPeriod, ...], get_args(SalaryPeriod))
+ON_CALL_POLICIES = cast(tuple[OnCallPolicy, ...], get_args(OnCallPolicy))
 
 
 @dataclass(slots=True)
@@ -36,8 +60,8 @@ class CompanyRecord:
     founded_year: int | None = None
     short_history: str = ""
 
-    def to_dict(self) -> dict[str, object]:
-        return asdict(self)
+    def to_dict(self) -> RecordPayload:
+        return cast(RecordPayload, asdict(self))
 
 
 @dataclass(slots=True)
@@ -79,8 +103,8 @@ class JobRecord:
     relocation_countries: list[str] = field(default_factory=list)
     deal_breaker_tags: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> dict[str, object]:
-        return asdict(self)
+    def to_dict(self) -> RecordPayload:
+        return cast(RecordPayload, asdict(self))
 
 
 @dataclass(slots=True)
@@ -96,8 +120,8 @@ class ApplicationRecord:
     submitted_at: str
     decided_at: str | None = None
 
-    def to_dict(self) -> dict[str, object]:
-        return asdict(self)
+    def to_dict(self) -> RecordPayload:
+        return cast(RecordPayload, asdict(self))
 
 
 def _string_list(payload: object) -> list[str]:
@@ -106,7 +130,13 @@ def _string_list(payload: object) -> list[str]:
     return [str(item) for item in payload]
 
 
-def company_from_dict(payload: dict[str, object]) -> CompanyRecord:
+def _literal_string[T: str](value: JsonValue, allowed_values: tuple[T, ...], field_name: str) -> T:
+    if isinstance(value, str) and value in allowed_values:
+        return value
+    raise ValueError(f"Invalid {field_name}: {value!r}")
+
+
+def company_from_dict(payload: RecordPayload) -> CompanyRecord:
     latitude = payload.get("latitude")
     longitude = payload.get("longitude")
     founded_year = payload.get("founded_year")
@@ -136,7 +166,7 @@ def company_from_dict(payload: dict[str, object]) -> CompanyRecord:
     )
 
 
-def job_from_dict(payload: dict[str, object]) -> JobRecord:
+def job_from_dict(payload: RecordPayload) -> JobRecord:
     salary_range = payload["salary_range"]
     assert isinstance(salary_range, dict)
     return JobRecord(
@@ -144,9 +174,13 @@ def job_from_dict(payload: dict[str, object]) -> JobRecord:
         title=str(payload["title"]),
         company_id=str(payload.get("company_id", payload.get("company", ""))),
         location=str(payload["location"]),
-        work_mode=payload["work_mode"],  # type: ignore[arg-type]
-        employment_type=payload["employment_type"],  # type: ignore[arg-type]
-        seniority=payload["seniority"],  # type: ignore[arg-type]
+        work_mode=_literal_string(payload["work_mode"], WORK_MODES, "work_mode"),
+        employment_type=_literal_string(
+            payload["employment_type"],
+            EMPLOYMENT_TYPES,
+            "employment_type",
+        ),
+        seniority=_literal_string(payload["seniority"], SENIORITIES, "seniority"),
         salary_range=SalaryRange(
             currency=str(salary_range["currency"]),
             min=int(salary_range["min"]),
@@ -163,20 +197,28 @@ def job_from_dict(payload: dict[str, object]) -> JobRecord:
         office_cities=_string_list(payload.get("office_cities", [])),
         visa_sponsorship=bool(payload.get("visa_sponsorship", False)),
         timezone_overlap_hours=int(payload.get("timezone_overlap_hours", 0)),
-        salary_period=payload.get("salary_period", "year"),  # type: ignore[arg-type]
+        salary_period=_literal_string(
+            payload.get("salary_period", "year"),
+            SALARY_PERIODS,
+            "salary_period",
+        ),
         equity_offered=bool(payload.get("equity_offered", False)),
         languages_required=_string_list(payload.get("languages_required", [])),
         languages_nice_to_have=_string_list(payload.get("languages_nice_to_have", [])),
         role_focus=_string_list(payload.get("role_focus", [])),
         domain_tags=_string_list(payload.get("domain_tags", [])),
-        on_call_policy=payload.get("on_call_policy", "none"),  # type: ignore[arg-type]
+        on_call_policy=_literal_string(
+            payload.get("on_call_policy", "none"),
+            ON_CALL_POLICIES,
+            "on_call_policy",
+        ),
         relocation_required=bool(payload.get("relocation_required", False)),
         relocation_countries=_string_list(payload.get("relocation_countries", [])),
         deal_breaker_tags=_string_list(payload.get("deal_breaker_tags", [])),
     )
 
 
-def application_from_dict(payload: dict[str, object]) -> ApplicationRecord:
+def application_from_dict(payload: RecordPayload) -> ApplicationRecord:
     return ApplicationRecord(
         id=str(payload["id"]),
         job_id=str(payload["job_id"]),
@@ -185,7 +227,7 @@ def application_from_dict(payload: dict[str, object]) -> ApplicationRecord:
         applicant_email=str(payload["applicant_email"]),
         resume_url=str(payload["resume_url"]),
         cover_note=str(payload["cover_note"]),
-        status=payload["status"],  # type: ignore[arg-type]
+        status=_literal_string(payload["status"], APPLICATION_STATUSES, "status"),
         submitted_at=str(payload["submitted_at"]),
         decided_at=str(payload["decided_at"]) if payload.get("decided_at") is not None else None,
     )
