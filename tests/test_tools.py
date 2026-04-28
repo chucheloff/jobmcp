@@ -123,8 +123,8 @@ async def test_get_company_jobs_tool_returns_company_listings(monkeypatch, seede
     result = await main.get_company_jobs("company-alphabet")
 
     assert result["found"] is True
-    assert result["total"] == 3
-    assert {job["id"] for job in result["jobs"]} == {"job-001", "job-002", "job-003"}
+    assert result["total"] == 4
+    assert {job["id"] for job in result["jobs"]} == {"job-001", "job-002", "job-003", "job-031"}
 
 
 async def test_reset_mock_data_tool_reseeds_catalog(monkeypatch, seeded_repository) -> None:

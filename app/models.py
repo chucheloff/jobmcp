@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Literal
 
 WorkMode = Literal["remote", "hybrid", "onsite"]
 EmploymentType = Literal["full-time", "contract", "internship"]
 Seniority = Literal["junior", "mid", "senior", "staff"]
 ApplicationStatus = Literal["submitted", "positive", "rejected"]
+SalaryPeriod = Literal["year", "hour"]
+OnCallPolicy = Literal["none", "business-hours", "rotating", "24-7"]
 
 
 @dataclass(slots=True)
@@ -62,6 +64,20 @@ class JobRecord:
     description: str
     posted_at: str
     application_url: str
+    eligible_countries: list[str] = field(default_factory=list)
+    office_cities: list[str] = field(default_factory=list)
+    visa_sponsorship: bool = False
+    timezone_overlap_hours: int = 0
+    salary_period: SalaryPeriod = "year"
+    equity_offered: bool = False
+    languages_required: list[str] = field(default_factory=list)
+    languages_nice_to_have: list[str] = field(default_factory=list)
+    role_focus: list[str] = field(default_factory=list)
+    domain_tags: list[str] = field(default_factory=list)
+    on_call_policy: OnCallPolicy = "none"
+    relocation_required: bool = False
+    relocation_countries: list[str] = field(default_factory=list)
+    deal_breaker_tags: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -143,6 +159,20 @@ def job_from_dict(payload: dict[str, object]) -> JobRecord:
         description=str(payload["description"]),
         posted_at=str(payload["posted_at"]),
         application_url=str(payload["application_url"]),
+        eligible_countries=_string_list(payload.get("eligible_countries", [])),
+        office_cities=_string_list(payload.get("office_cities", [])),
+        visa_sponsorship=bool(payload.get("visa_sponsorship", False)),
+        timezone_overlap_hours=int(payload.get("timezone_overlap_hours", 0)),
+        salary_period=payload.get("salary_period", "year"),  # type: ignore[arg-type]
+        equity_offered=bool(payload.get("equity_offered", False)),
+        languages_required=_string_list(payload.get("languages_required", [])),
+        languages_nice_to_have=_string_list(payload.get("languages_nice_to_have", [])),
+        role_focus=_string_list(payload.get("role_focus", [])),
+        domain_tags=_string_list(payload.get("domain_tags", [])),
+        on_call_policy=payload.get("on_call_policy", "none"),  # type: ignore[arg-type]
+        relocation_required=bool(payload.get("relocation_required", False)),
+        relocation_countries=_string_list(payload.get("relocation_countries", [])),
+        deal_breaker_tags=_string_list(payload.get("deal_breaker_tags", [])),
     )
 
 
