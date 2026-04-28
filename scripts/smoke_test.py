@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-from typing import Any
+from typing import TypeAlias
 
 from fastmcp import Client
 
@@ -26,8 +26,11 @@ EXPECTED_TOOLS = {
     "reset_mock_data",
 }
 
+SmokeTestValue: TypeAlias = str | int | list[str]
+SmokeTestResult: TypeAlias = dict[str, SmokeTestValue]
 
-async def run_smoke_test(url: str) -> dict[str, Any]:
+
+async def run_smoke_test(url: str) -> SmokeTestResult:
     client = Client(url)
 
     async with client:
