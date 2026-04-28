@@ -14,7 +14,9 @@ from app.models import (
     CompanyRecord,
     EmploymentType,
     JobRecord,
+    OnCallPolicy,
     SalaryRange,
+    SalaryPeriod,
     Seniority,
     WorkMode,
 )
@@ -73,9 +75,17 @@ async def search_jobs(
     keywords: list[str] | None = None,
     candidate_qualities: list[str] | None = None,
     min_salary: int | None = None,
+    eligible_countries: list[str] | None = None,
+    office_cities: list[str] | None = None,
+    visa_sponsorship_required: bool = False,
+    min_timezone_overlap_hours: int | None = None,
+    languages_required: list[str] | None = None,
+    role_focus: list[str] | None = None,
+    domain_tags: list[str] | None = None,
+    exclude_deal_breaker_tags: list[str] | None = None,
     limit: int = 10,
 ) -> dict[str, object]:
-    """Search mock job openings by title, location, salary, profession tags, and skills tags."""
+    """Search mock job openings by title, location, salary, tags, geo, language, and deal-breakers."""
 
     jobs = await repository.search_jobs(
         query=query,
@@ -87,6 +97,14 @@ async def search_jobs(
         skills_tags=skills_tags if skills_tags is not None else keywords,
         candidate_qualities=candidate_qualities,
         min_salary=min_salary,
+        eligible_countries=eligible_countries,
+        office_cities=office_cities,
+        visa_sponsorship_required=visa_sponsorship_required,
+        min_timezone_overlap_hours=min_timezone_overlap_hours,
+        languages_required=languages_required,
+        role_focus=role_focus,
+        domain_tags=domain_tags,
+        exclude_deal_breaker_tags=exclude_deal_breaker_tags,
         limit=limit,
     )
     return {"total": len(jobs), "jobs": [job.to_dict() for job in jobs]}
@@ -126,6 +144,20 @@ async def add_job(
     description: str,
     posted_at: str,
     application_url: str,
+    eligible_countries: list[str] | None = None,
+    office_cities: list[str] | None = None,
+    visa_sponsorship: bool = False,
+    timezone_overlap_hours: int = 0,
+    salary_period: SalaryPeriod = "year",
+    equity_offered: bool = False,
+    languages_required: list[str] | None = None,
+    languages_nice_to_have: list[str] | None = None,
+    role_focus: list[str] | None = None,
+    domain_tags: list[str] | None = None,
+    on_call_policy: OnCallPolicy = "none",
+    relocation_required: bool = False,
+    relocation_countries: list[str] | None = None,
+    deal_breaker_tags: list[str] | None = None,
 ) -> dict[str, object]:
     """Add a job listing for an existing company."""
 
@@ -148,6 +180,20 @@ async def add_job(
         description=description,
         posted_at=posted_at,
         application_url=application_url,
+        eligible_countries=eligible_countries or [],
+        office_cities=office_cities or [],
+        visa_sponsorship=visa_sponsorship,
+        timezone_overlap_hours=timezone_overlap_hours,
+        salary_period=salary_period,
+        equity_offered=equity_offered,
+        languages_required=languages_required or [],
+        languages_nice_to_have=languages_nice_to_have or [],
+        role_focus=role_focus or [],
+        domain_tags=domain_tags or [],
+        on_call_policy=on_call_policy,
+        relocation_required=relocation_required,
+        relocation_countries=relocation_countries or [],
+        deal_breaker_tags=deal_breaker_tags or [],
     )
     await repository.upsert_job(job)
     return {"created": True, "job": job.to_dict()}
@@ -172,6 +218,20 @@ async def update_job(
     description: str | None = None,
     posted_at: str | None = None,
     application_url: str | None = None,
+    eligible_countries: list[str] | None = None,
+    office_cities: list[str] | None = None,
+    visa_sponsorship: bool | None = None,
+    timezone_overlap_hours: int | None = None,
+    salary_period: SalaryPeriod | None = None,
+    equity_offered: bool | None = None,
+    languages_required: list[str] | None = None,
+    languages_nice_to_have: list[str] | None = None,
+    role_focus: list[str] | None = None,
+    domain_tags: list[str] | None = None,
+    on_call_policy: OnCallPolicy | None = None,
+    relocation_required: bool | None = None,
+    relocation_countries: list[str] | None = None,
+    deal_breaker_tags: list[str] | None = None,
 ) -> dict[str, object]:
     """Update fields on an existing job listing."""
 
@@ -196,6 +256,20 @@ async def update_job(
         "description": description,
         "posted_at": posted_at,
         "application_url": application_url,
+        "eligible_countries": eligible_countries,
+        "office_cities": office_cities,
+        "visa_sponsorship": visa_sponsorship,
+        "timezone_overlap_hours": timezone_overlap_hours,
+        "salary_period": salary_period,
+        "equity_offered": equity_offered,
+        "languages_required": languages_required,
+        "languages_nice_to_have": languages_nice_to_have,
+        "role_focus": role_focus,
+        "domain_tags": domain_tags,
+        "on_call_policy": on_call_policy,
+        "relocation_required": relocation_required,
+        "relocation_countries": relocation_countries,
+        "deal_breaker_tags": deal_breaker_tags,
     }
     if salary_currency is not None or salary_min is not None or salary_max is not None:
         updates["salary_range"] = {

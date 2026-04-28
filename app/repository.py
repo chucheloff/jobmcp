@@ -193,6 +193,20 @@ class JobRepository:
             "description",
             "posted_at",
             "application_url",
+            "eligible_countries",
+            "office_cities",
+            "visa_sponsorship",
+            "timezone_overlap_hours",
+            "salary_period",
+            "equity_offered",
+            "languages_required",
+            "languages_nice_to_have",
+            "role_focus",
+            "domain_tags",
+            "on_call_policy",
+            "relocation_required",
+            "relocation_countries",
+            "deal_breaker_tags",
         ):
             if field in updates and updates[field] is not None:
                 payload[field] = updates[field]
@@ -273,6 +287,14 @@ class JobRepository:
         skills_tags: list[str] | None = None,
         candidate_qualities: list[str] | None = None,
         min_salary: int | None = None,
+        eligible_countries: list[str] | None = None,
+        office_cities: list[str] | None = None,
+        visa_sponsorship_required: bool = False,
+        min_timezone_overlap_hours: int | None = None,
+        languages_required: list[str] | None = None,
+        role_focus: list[str] | None = None,
+        domain_tags: list[str] | None = None,
+        exclude_deal_breaker_tags: list[str] | None = None,
         limit: int = 10,
     ) -> list[JobRecord]:
         jobs = await self.list_jobs()
@@ -281,6 +303,12 @@ class JobRepository:
         normalized_professions = self._normalize_filter_tags(profession_tags)
         normalized_skills = self._normalize_filter_tags(skills_tags)
         normalized_qualities = self._normalize_filter_tags(candidate_qualities)
+        normalized_countries = self._normalize_filter_tags(eligible_countries)
+        normalized_cities = self._normalize_filter_tags(office_cities)
+        normalized_languages = self._normalize_filter_tags(languages_required)
+        normalized_role_focus = self._normalize_filter_tags(role_focus)
+        normalized_domains = self._normalize_filter_tags(domain_tags)
+        normalized_excluded_deal_breakers = self._normalize_filter_tags(exclude_deal_breaker_tags)
         bounded_limit = max(1, min(limit, 50))
 
         def matches(job: JobRecord) -> bool:
@@ -320,6 +348,33 @@ class JobRepository:
                 return False
 
             if not self._contains_all(job.candidate_qualities, normalized_qualities):
+                return False
+
+            if normalized_countries and not self._contains_any(job.eligible_countries, normalized_countries):
+                return False
+
+            if normalized_cities and not self._contains_any(job.office_cities, normalized_cities):
+                return False
+
+            if visa_sponsorship_required and not job.visa_sponsorship:
+                return False
+
+            if (
+                min_timezone_overlap_hours is not None
+                and job.timezone_overlap_hours < min_timezone_overlap_hours
+            ):
+                return False
+
+            if not self._contains_all(job.languages_required, normalized_languages):
+                return False
+
+            if normalized_role_focus and not self._contains_any(job.role_focus, normalized_role_focus):
+                return False
+
+            if normalized_domains and not self._contains_any(job.domain_tags, normalized_domains):
+                return False
+
+            if self._contains_any(job.deal_breaker_tags, normalized_excluded_deal_breakers):
                 return False
 
             return True
@@ -465,3 +520,10 @@ class JobRepository:
             return True
         normalized_values = {value.lower() for value in values}
         return required.issubset(normalized_values)
+
+    @staticmethod
+    def _contains_any(values: list[str], candidates: set[str]) -> bool:
+        if not candidates:
+            return False
+        normalized_values = {value.lower() for value in values}
+        return bool(normalized_values & candidates)

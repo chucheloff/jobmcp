@@ -44,14 +44,33 @@ async def test_search_jobs_filters_and_sorts_results(seeded_repository) -> None:
     assert jobs[0].posted_at > jobs[1].posted_at
 
 
+async def test_search_jobs_supports_filter_fixture_signals(seeded_repository) -> None:
+    jobs = await seeded_repository.search_jobs(
+        eligible_countries=["Kazakhstan"],
+        office_cities=["Amsterdam"],
+        visa_sponsorship_required=True,
+        min_timezone_overlap_hours=4,
+        languages_required=["en"],
+        domain_tags=["capital-markets"],
+        exclude_deal_breaker_tags=["gambling", "requires-us-relocation"],
+        min_salary=90000,
+        limit=10,
+    )
+
+    assert [job.id for job in jobs] == ["job-022"]
+    assert "Visa sponsorship is available" in jobs[0].description
+    assert "Asia/Almaty" in jobs[0].description
+
+
 async def test_company_jobs_are_listed_by_company_id(seeded_repository) -> None:
     jobs = await seeded_repository.list_company_jobs("company-alphabet")
 
-    assert {job.id for job in jobs} == {"job-001", "job-002", "job-003"}
+    assert {job.id for job in jobs} == {"job-001", "job-002", "job-003", "job-031"}
     assert {job.title for job in jobs} == {
         "AI Agent Engineer",
         "Recruiting Data Engineer",
         "Product Manager, Agent Workflows",
+        "Staff Data Platform Engineer",
     }
 
 

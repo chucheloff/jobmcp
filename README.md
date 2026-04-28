@@ -96,6 +96,22 @@ Each job includes:
 - description
 - posted date
 - application URL
+- eligible countries
+- office cities
+- visa sponsorship availability
+- timezone overlap hours with Asia/Almaty
+- salary period
+- equity offered
+- required languages
+- nice-to-have languages
+- role focus tags
+- domain tags
+- on-call policy
+- relocation requirement
+- relocation countries
+- deal-breaker tags
+
+The same signals are also written into the mock job descriptions so ranking and extraction algorithms can be tested against prose rather than only clean structured fields.
 
 ### Applications
 
