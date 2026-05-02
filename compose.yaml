@@ -3,7 +3,9 @@ name: jobmcp
 services:
   valkey:
     image: valkey/valkey:9.0.3-alpine3.23
-    command: ["valkey-server", "--save", "", "--appendonly", "no"]
+    command: ["valkey-server", "--appendonly", "yes", "--appendfsync", "everysec", "--save", "60", "1"]
+    volumes:
+      - valkey-data:/data
     ports:
       - "6379:6379"
     healthcheck:
@@ -29,3 +31,6 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
+
+volumes:
+  valkey-data:
